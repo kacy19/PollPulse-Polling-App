@@ -3,95 +3,85 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function CreatePoll() {
-  const [question, setQuestion] = useState('');
-  const [options, setOptions]   = useState(['', '']);
-  const [expiresAt, setExpiresAt] = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
   const { token } = useAuth();
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
 
-  const addOption = () => options.length < 6 && setOptions([...options, '']);
-  const removeOption = (i) => options.length > 2 && setOptions(options.filter((_, idx) => idx !== i));
-  const updateOption = (i, val) => setOptions(options.map((o, idx) => idx === i ? val : o));
+  const [question, setQuestion] = useState('');
+  const [options, setOptions] = useState(['', '']);
+  const [expiresAt, setExpiresAt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setError(''); setLoading(true);
-    const filled = options.filter(o => o.trim());
-    if (filled.length < 2) { setError('Need at least 2 options'); setLoading(false); return; }
+  const handleOptionChange = (idx, value) => {
+    const updated = [...options];
+    updated[idx] = value;
+    setOptions(updated);
+  };
+
+  const addOption = () => setOptions([...options, '']);
+  const removeOption = idx => setOptions(options.filter((_, i) => i !== idx));
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setError('');
+    if (!question || options.filter(o => o.trim() !== '').length < 2) {
+      setError('Please provide a question and at least 2 options.');
+      return;
+    }
+    setLoading(true);
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/polls`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ question, options: filled, expiresAt: expiresAt || null }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          question,
+          options: options.filter(o => o.trim() !== ''),
+          expiresAt: expiresAt || null
+        }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.msg);
+      if (!res.ok) throw new Error(data.msg || 'Failed to create poll');
       navigate(`/poll/${data._id}`);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 20px' }}>
+    <div className="page-narrow">
       <div className="fade-up">
-        <h1 style={{ fontFamily: 'var(--font-h)', fontSize: '1.9rem', fontWeight: 800, marginBottom: 6 }}>
-          Create a Poll
-        </h1>
-        <p style={{ color: 'var(--muted)', marginBottom: 30 }}>Ask anything. Get instant answers.</p>
-
+        <h1 style={{ fontFamily: 'var(--font-h)', fontSize: '1.8rem', fontWeight: 800, marginBottom: 24 }}>Create a New Poll</h1>
         <div className="card">
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-            {/* Question */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div>
-              <label className="label">Your Question</label>
-              <textarea
+              <label className="label">Question</label>
+              <input
                 className="input-field"
-                placeholder="What's your favorite programming language?"
+                placeholder="What's your favorite color?"
                 value={question}
                 onChange={e => setQuestion(e.target.value)}
-                required rows={3}
-                style={{ resize: 'vertical', lineHeight: 1.5 }}
+                required
               />
             </div>
 
-            {/* Options */}
             <div>
-              <label className="label">Options ({options.length}/6)</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {options.map((opt, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                      background: 'var(--elevated)', border: '1px solid var(--border)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.75rem', color: 'var(--accent)', fontFamily: 'var(--font-h)', fontWeight: 700
-                    }}>{i + 1}</div>
-                    <input
-                      className="input-field"
-                      placeholder={`Option ${i + 1}`}
-                      value={opt}
-                      onChange={e => updateOption(i, e.target.value)}
-                      style={{ flex: 1 }}
-                    />
-                    {options.length > 2 && (
-                      <button type="button" onClick={() => removeOption(i)}
-                        style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '1.1rem', padding: '4px', lineHeight: 1 }}>
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {options.length < 6 && (
-                  <button type="button" onClick={addOption} className="btn btn-outline"
-                    style={{ alignSelf: 'flex-start', fontSize: '0.85rem', padding: '9px 16px' }}>
-                    + Add Option
-                  </button>
-                )}
-              </div>
+              <label className="label">Options</label>
+              {options.map((opt, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                  <input
+                    className="input-field"
+                    placeholder={`Option ${idx + 1}`}
+                    value={opt}
+                    onChange={e => handleOptionChange(idx, e.target.value)}
+                    required
+                  />
+                  {options.length > 2 && (
+                    <button type="button" className="btn btn-danger" onClick={() => removeOption(idx)}>✕</button>
+                  )}
+                </div>
+              ))}
+              <button type="button" className="btn btn-outline" onClick={addOption}>+ Add Option</button>
             </div>
 
-            {/* Expiry */}
             <div>
               <label className="label">Expiry Date (optional)</label>
               <input
@@ -104,9 +94,8 @@ export default function CreatePoll() {
 
             {error && <p className="error-msg">⚠ {error}</p>}
 
-            <button className="btn btn-primary" type="submit" disabled={loading || !question.trim()}
-              style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '0.95rem' }}>
-              {loading ? <><span className="spinner" /> Creating...</> : '⚡ Launch Poll'}
+            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', padding: '13px' }}>
+              {loading ? 'Creating Poll...' : 'Create Poll →'}
             </button>
           </form>
         </div>
